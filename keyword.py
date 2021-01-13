@@ -135,7 +135,7 @@ async def reply(context):
 
 @listener(outgoing=True, command="replyset",
           description="自动回复设置。",
-          parameters="help` 查看更多`")
+          parameters="help")
 async def reply_set(context):
     if not redis_status():
         await context.edit("出错了呜呜呜 ~ Redis 离线，无法运行。")
