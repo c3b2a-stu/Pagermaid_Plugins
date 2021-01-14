@@ -153,8 +153,8 @@ async def reply_set(context):
     reply_settings = reply_settings if reply_settings else b""
     reply_settings = str(reply_settings, "ascii")
     settings_dict = parse_rules(reply_settings)
-    cmd_list = ["help", "mode", "list", "show"]
-    cmd_dict = {"help": (1, ), "mode": (2, ), "list": (2, 3), "show": (1, )}
+    cmd_list = ["help", "mode", "list", "show", "clear"]
+    cmd_dict = {"help": (1, ), "mode": (2, ), "list": (2, 3), "show": (1, ), "clear": (1, )}
     if len(params) < 1:
         await context.edit("参数错误")
         return
@@ -162,7 +162,8 @@ async def reply_set(context):
         if params[0] == "help":
             await context.edit('''
 `-replyset show` 或
-`-replyset mode <0/1>` ( 0 表示黑名单，1 表示白名单 ) 或
+`-replyset clear` 或
+`-replyset mode <0/1/clear>` ( 0 表示黑名单，1 表示白名单 ) 或
 `-replyset list <add/del/show/clear> [user_id]`。
 在 `-replyset` 后面加上 `global` 即为全局设置''')
             return
@@ -179,6 +180,11 @@ async def reply_set(context):
                 redis.set(redis_data, save_rules(settings_dict, None))
                 if params[1] == "0": await context.edit("模式已更改为黑名单")
                 elif params[1] == "1": await context.edit("模式已更改为白名单")
+                return
+            elif params[1] == "clear":
+                if "mode" in settings_dict: del settings_dict["mode"]
+                redis.set(redis_data, save_rules(settings_dict, None))
+                await context.edit("清除成功")
                 return
             else:
                 await context.edit("参数错误")
@@ -227,12 +233,17 @@ async def reply_set(context):
                     await context.edit("user_id 需为整数")
                     return
             elif params[1] == "clear" and len(params) == 2:
-                redis.set(redis_data, "")
+                if "list" in settings_dict: del settings_dict["list"]
+                redis.set(redis_data, save_rules(settings_dict, None))
                 await context.edit("清除成功")
                 return
             else:
                 await context.edit("参数错误")
                 return
+        elif params[0] == "clear":
+            redis.delete(redis_data)
+            await context.edit("清除成功")
+            return
     else:
         await context.edit("参数错误")
         return
