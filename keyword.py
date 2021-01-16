@@ -1,6 +1,4 @@
-import re
-import time
-import uuid
+import re, time, uuid
 from base64 import b64encode, b64decode
 from pagermaid import bot, redis, log, redis_status
 from pagermaid.listener import listener
@@ -52,6 +50,12 @@ def validate(user_id: str, mode: int, user_list: list):
     else:
         return False
 
+def get_redis(db_key: str):
+    byte_data = redis.get(db_key)
+    byte_data = byte_data if byte_data else b""
+    byte_data = str(byte_data, "ascii")
+    return parse_rules(byte_data)
+
 @listener(is_plugin=True, outgoing=True, command="keyword",
           description="关键词自动回复。",
           parameters="``new <plain|regex> '<规则>' '<回复信息>'` 或者 `del <plain|regex> '<规则>'` 或者 `list` 或者 `clear <plain|regex>")
@@ -63,14 +67,8 @@ async def reply(context):
     if chat_id > 0:
         await context.edit("请在群组中使用")
         return
-    plain_rules = redis.get(f"keyword.{chat_id}.plain")
-    regex_rules = redis.get(f"keyword.{chat_id}.regex")
-    plain_rules = plain_rules if plain_rules else b""
-    regex_rules = regex_rules if regex_rules else b""
-    plain_rules = str(plain_rules, "ascii")
-    regex_rules = str(regex_rules, "ascii")
-    plain_dict = parse_rules(plain_rules)
-    regex_dict = parse_rules(regex_rules)
+    plain_dict = get_redis(f"keyword.{chat_id}.plain")
+    regex_dict = get_redis(f"keyword.{chat_id}.regex")
     params = context.parameter
     params = " ".join(params)
     placeholder = random_str()
@@ -151,10 +149,7 @@ async def reply_set(context):
     redis_data = "keyword.settings" if is_global else f"keyword.{chat_id}.settings"
     if is_global:
         del params[0]
-    reply_settings = redis.get(redis_data)
-    reply_settings = reply_settings if reply_settings else b""
-    reply_settings = str(reply_settings, "ascii")
-    settings_dict = parse_rules(reply_settings)
+    settings_dict = get_redis(redis_data)
     cmd_list = ["help", "mode", "list", "show", "clear"]
     cmd_dict = {"help": (1, ), "mode": (2, ), "list": (2, 3), "show": (1, ), "clear": (1, )}
     if len(params) < 1:
@@ -257,22 +252,10 @@ async def auto_reply(context):
     chat_id = context.chat_id
     sender_id = context.sender_id
     if chat_id < 0:
-        plain_rules = redis.get(f"keyword.{chat_id}.plain")
-        regex_rules = redis.get(f"keyword.{chat_id}.regex")
-        g_settings = redis.get("keyword.settings")
-        n_settings = redis.get(f"keyword.{chat_id}.settings")
-        plain_rules = plain_rules if plain_rules else b""
-        regex_rules = regex_rules if regex_rules else b""
-        g_settings = g_settings if g_settings else b""
-        n_settings = n_settings if n_settings else b""
-        plain_rules = str(plain_rules, "ascii")
-        regex_rules = str(regex_rules, "ascii")
-        g_settings = str(g_settings, "ascii")
-        n_settings = str(n_settings, "ascii")
-        plain_dict = parse_rules(plain_rules)
-        regex_dict = parse_rules(regex_rules)
-        g_settings = parse_rules(g_settings)
-        n_settings = parse_rules(n_settings)
+        plain_dict = get_redis(f"keyword.{chat_id}.plain")
+        regex_dict = get_redis(f"keyword.{chat_id}.regex")
+        g_settings = get_redis("keyword.settings")
+        n_settings = get_redis(f"keyword.{chat_id}.settings")
         g_mode = g_settings["mode"] if "mode" in g_settings else None
         n_mode = n_settings["mode"] if "mode" in n_settings else None
         mode = "0"
